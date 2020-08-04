@@ -1,0 +1,22 @@
+version: '2'
+services:
+  ding-talk-notify-service:
+    image: ding-talk-notify-service:0.0.1
+    network_mode: "bridge"
+    ports:
+      - "10010:10010"
+    environment:
+      - "TZ=Asia/Shanghai"
+      - "APP_PORT=10010"
+      - "CONF_PATH=./configs"
+      - "LOG_PATH=./logs"
+      - "LOG_NAME=app.log"
+      - "MODE=release"
+    volumes:
+      - ./configs:/configs
+      - ./logs:/logs
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "2"
