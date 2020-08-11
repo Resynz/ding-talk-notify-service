@@ -20,3 +20,15 @@ type DingTalkResponse struct {
 	TimeStamp    string `json:"timeStamp"` // 这里钉钉要求返回的格式也太丑陋了!
 	Nonce        string `json:"nonce"`
 }
+
+type Register struct {
+	InstanceId string `json:"instance_id"`
+	NotifyUrl  string `json:"notify_url"`
+}
+
+type EventType string
+
+type NotifyTask struct {
+	NotifyUrl string `json:"notify_url"`
+	Body      []byte `json:"body"`
+}

@@ -15,18 +15,60 @@ import (
 )
 
 var (
-	AppPort         = 10010       // 服务端口号
-	LogPath         = "./logs"    // 日志文件路径
-	LogName         = "app.log"   // 日志文件名称
-	ConfPath        = "./configs" // 配置文件路径
-	Mode            = "debug"     // debug or release
-	DingTalkHandler *lib.DingTalkHandler
+	AppPort           = 10010       // 服务端口号
+	LogPath           = "./logs"    // 日志文件路径
+	LogName           = "app.log"   // 日志文件名称
+	ConfPath          = "./configs" // 配置文件路径
+	Mode              = "debug"     // debug or release
+	DingTalkHandler   *lib.DingTalkHandler
+	NotifyRegisterMap structs.RegisterMap
+	StorePath         = "./store" // 尚未完成的回调任务存储路径
+	QueueLen          = 10
 )
 
 func getEnv(e *string, key string) {
 	if c := os.Getenv(key); c != "" {
 		*e = c
 	}
+}
+
+func initUnHandleRegister() error {
+	NotifyRegisterMap = make(structs.RegisterMap)
+	f, err := os.OpenFile(fmt.Sprintf("%s/register.json", StorePath), os.O_CREATE|os.O_RDONLY, 0666)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	var registers []*structs.Register
+	dc := json.NewDecoder(f)
+	if err = dc.Decode(&registers); err != nil {
+		return err
+	}
+	for _, v := range registers {
+		NotifyRegisterMap[v.InstanceId] = v.NotifyUrl
+	}
+	return nil
+}
+
+func StoreUnHandleRegister() error {
+	registers := make([]*structs.Register, 0)
+	for k, v := range NotifyRegisterMap {
+		r := &structs.Register{
+			InstanceId: k,
+			NotifyUrl:  v,
+		}
+		registers = append(registers, r)
+	}
+	f, err := os.OpenFile(fmt.Sprintf("%s/register.json", StorePath), os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	ec := json.NewEncoder(f)
+	if err = ec.Encode(&registers); err != nil {
+		return err
+	}
+	return nil
 }
 
 func initDingTalkHandler() error {
@@ -64,6 +106,9 @@ func InitEnv() error {
 	getEnv(&ConfPath, "CONF_PATH")
 	getEnv(&Mode, "MODE")
 	if err := initDingTalkHandler(); err != nil {
+		return err
+	}
+	if err := initUnHandleRegister(); err != nil {
 		return err
 	}
 	printEnv()

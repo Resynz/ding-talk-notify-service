@@ -6,8 +6,12 @@ package controller
 
 import (
 	"ding-talk-notify-service/config"
+	"ding-talk-notify-service/enums"
+	"ding-talk-notify-service/queue"
+	"ding-talk-notify-service/structs"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
@@ -75,10 +79,56 @@ func EventReceive(ctx *gin.Context) {
 		_ = ctx.AbortWithError(http.StatusBadRequest, nil)
 		return
 	}
+	defer ctx.JSON(200, response)
 
-	// todo 获取解析内容，处理相关逻辑
+	// 获取解析内容，处理相关逻辑
 
-	// todo 根据相关逻辑，推送至回调队列
+	// 注册回调后check
+	if string(content) == "success" {
+		return
+	}
 
-	ctx.JSON(200, response)
+	// 获取EventType
+	type eventType struct {
+		EventType structs.EventType `json:"event_type"`
+	}
+	var et eventType
+	if err = json.Unmarshal(content, &et); err != nil {
+		log.Printf("解析eventType failed! error:%v\n", err)
+		return
+	}
+	notifyUrl := ""
+	switch et.EventType {
+	case enums.BPMS_TASK_CHANGE:
+	case enums.BPMS_INSTANCE_CHANGE:
+		type bpms struct {
+			ProcessInstanceId string `json:"process_instance_id"`
+		}
+		var b bpms
+		if err = json.Unmarshal(content, &b); err != nil {
+			log.Printf("解析 process_instance_id failed! error:%v\n", err)
+			return
+		}
+		notify, ok := config.NotifyRegisterMap[b.ProcessInstanceId]
+		if !ok {
+			log.Printf("没有找到注册回调的审批实例[%s]\n", b.ProcessInstanceId)
+			return
+		}
+		delete(config.NotifyRegisterMap, b.ProcessInstanceId)
+		notifyUrl = notify
+		break
+
+		// todo more event types
+	}
+
+	if notifyUrl == "" {
+		return
+	}
+	// 构造转发的url
+	notifyUrl = fmt.Sprintf("%s?signature=%s&timestamp=%s&nonce=%s", notifyUrl, signature, timestamp, nonce)
+	task := &structs.NotifyTask{
+		NotifyUrl: notifyUrl,
+		Body:      body,
+	}
+	go queue.PushToTaskQueue(task)
 }

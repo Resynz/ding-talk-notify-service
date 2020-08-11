@@ -5,6 +5,7 @@
 package queue
 
 import (
+	"ding-talk-notify-service/config"
 	"log"
 	"os"
 	"os/signal"
@@ -20,7 +21,7 @@ func SetSignalHandler() {
 			log.Println("关闭队列中...")
 			defer close(notifyQueue)
 			defer close(notifyExitChan)
-			log.Println("关闭队列完毕,程序退出.")
+			log.Println("程序退出.")
 			os.Exit(0)
 		}()
 		s := <-sign
@@ -31,5 +32,12 @@ func SetSignalHandler() {
 		log.Println("正在等待回调队列退出...")
 		<-notifyExitChan
 		log.Println("回调队列退出完毕!")
+
+		if len(config.NotifyRegisterMap) > 0 {
+			log.Println("正在保存尚未回调的资源...")
+			if err := config.StoreUnHandleRegister(); err != nil {
+				log.Printf("保存失败！error:%v\n", err)
+			}
+		}
 	}()
 }
