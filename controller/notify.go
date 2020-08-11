@@ -15,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
+	"time"
 )
 
 type encryptBody struct {
@@ -90,7 +91,7 @@ func EventReceive(ctx *gin.Context) {
 
 	// 获取EventType
 	type eventType struct {
-		EventType structs.EventType `json:"event_type"`
+		EventType structs.EventType `json:"EventType"`
 	}
 	var et eventType
 	if err = json.Unmarshal(content, &et); err != nil {
@@ -99,10 +100,9 @@ func EventReceive(ctx *gin.Context) {
 	}
 	notifyUrl := ""
 	switch et.EventType {
-	case enums.BPMS_TASK_CHANGE:
-	case enums.BPMS_INSTANCE_CHANGE:
+	case enums.BPMS_TASK_CHANGE, enums.BPMS_INSTANCE_CHANGE:
 		type bpms struct {
-			ProcessInstanceId string `json:"process_instance_id"`
+			ProcessInstanceId string `json:"processInstanceId"`
 			Type              string `json:"type"`
 		}
 		var b bpms
@@ -118,7 +118,10 @@ func EventReceive(ctx *gin.Context) {
 		notifyUrl = notify
 		// 如果是审批流结束，从map中删除
 		if et.EventType == enums.BPMS_INSTANCE_CHANGE && (b.Type == "finish" || b.Type == "terminate") {
-			delete(config.NotifyRegisterMap, b.ProcessInstanceId)
+			go func() {
+				time.Sleep(time.Second * 5)
+				delete(config.NotifyRegisterMap, b.ProcessInstanceId)
+			}()
 		}
 		break
 
