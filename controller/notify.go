@@ -84,7 +84,7 @@ func EventReceive(ctx *gin.Context) {
 	// 获取解析内容，处理相关逻辑
 
 	// 注册回调后check
-	if string(content) == "success" {
+	if string(content) == "check_url" {
 		return
 	}
 
@@ -103,6 +103,7 @@ func EventReceive(ctx *gin.Context) {
 	case enums.BPMS_INSTANCE_CHANGE:
 		type bpms struct {
 			ProcessInstanceId string `json:"process_instance_id"`
+			Type              string `json:"type"`
 		}
 		var b bpms
 		if err = json.Unmarshal(content, &b); err != nil {
@@ -114,8 +115,11 @@ func EventReceive(ctx *gin.Context) {
 			log.Printf("没有找到注册回调的审批实例[%s]\n", b.ProcessInstanceId)
 			return
 		}
-		delete(config.NotifyRegisterMap, b.ProcessInstanceId)
 		notifyUrl = notify
+		// 如果是审批流结束，从map中删除
+		if et.EventType == enums.BPMS_INSTANCE_CHANGE && (b.Type == "finish" || b.Type == "terminate") {
+			delete(config.NotifyRegisterMap, b.ProcessInstanceId)
+		}
 		break
 
 		// todo more event types
